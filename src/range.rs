@@ -1,4 +1,5 @@
 use std::fmt;
+use std::default::Default;
 
 #[derive(Clone)]
 /// 数字二つの範囲を取る
@@ -28,37 +29,39 @@ pub trait RangeImpl: Sized {
 
 // バリエーションを楽に追加するためにマクロ
 macro_rules! range_int_impl {
-    ($ty:ty) => {
-        impl RangeImpl for Range<$ty> {
-            type T = $ty;
-            
-            fn new(low: Self::T, high: Self::T) -> Self {
-                Range {
-                    low: low,
-                    high: high,
+    ( $($ty:ty),+ ) => {
+        $( 
+            impl RangeImpl for Range<$ty> {
+                type T = $ty;
+                
+                fn new(low: Self::T, high: Self::T) -> Self {
+                    Range {
+                        low: low,
+                        high: high,
+                    }
+                }
+                
+                fn low(&self) -> Self::T {
+                    self.low
+                }
+                
+                fn high(&self) -> Self::T {
+                    self.high
+                }
+                
+                fn is_overlap(&self, other: &Range<Self::T>) -> bool {
+                    self.low <= other.low && self.high >= other.low ||
+                    self.low >= other.low && self.low <= other.high
                 }
             }
-            
-            fn low(&self) -> Self::T {
-                self.low
-            }
-            
-            fn high(&self) -> Self::T {
-                self.high
-            }
-            
-            fn is_overlap(&self, other: &Range<Self::T>) -> bool {
-                self.low <= other.low && self.high >= other.low ||
-                self.low >= other.low && self.low <= other.high
-            }
-        }
+        )+
     }
 }
 
-// 各種マクロ起動
-range_int_impl!(u32);
-range_int_impl!(i32);
-range_int_impl!(f32);
+range_int_impl!(usize, u8, u16, u32, u64);
+range_int_impl!(isize, i8, i16, i32, i64);
+range_int_impl!(f32, f64);
+
 
 // for Debug
 impl <T: fmt::Debug>fmt::Debug for Range<T> {
@@ -73,3 +76,39 @@ impl <T: fmt::Display>fmt::Display for Range<T> {
         write!(f, "{}..{}", self.low, self.high)
     }
 }
+
+macro_rules! range_default_float_impl {
+    ($ty:ty) => {
+        impl Default for Range<$ty> {
+            fn default() -> Range<$ty> {
+                Range::new(0.0, 0.0)
+            }
+        }
+    }
+}
+
+macro_rules! range_default_int_impl {
+    ($ty:ty) => {
+        impl Default for Range<$ty> {
+            fn default() -> Range<$ty> {
+                Range::new(0, 0)
+            }
+        }
+    }
+}
+
+macro_rules! range_default_impl {
+    ( f32 ) => ( range_default_float_impl!(f32); );
+    ( f64 ) => ( range_default_float_impl!(f64); );
+    ( $( $ty:ty ),+ ) => {
+        $( range_default_int_impl!($ty); )+
+    }
+}
+
+// intをずらずらと
+range_default_impl!(usize, u8, u16, u32, u64);
+range_default_impl!(isize, i8, i16, i32, i64);
+
+// 仕様上、floatは二回に分けておく
+range_default_impl!(f32);
+range_default_impl!(f64);
